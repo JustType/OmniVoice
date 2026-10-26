@@ -5,7 +5,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y libsndfile1 git && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir fastapi uvicorn pydantic soundfile numpy omnivoice
+RUN pip install --no-cache-dir fastapi uvicorn pydantic soundfile numpy omnivoice "brotli>=1.2.0"
 
 # Pre-bake weights so the background load finishes within a few seconds
 RUN python -c "from omnivoice import OmniVoice; OmniVoice.from_pretrained('k2-fsa/OmniVoice')"
