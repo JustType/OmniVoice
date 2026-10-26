@@ -1,0 +1,4 @@
+__pycache__/
+candidates/
+out_*.wav
+*.pcm

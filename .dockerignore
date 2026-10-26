@@ -1,0 +1,7 @@
+.git
+client/
+scripts/
+candidates/
+README.md
+**/__pycache__
+*.pcm
