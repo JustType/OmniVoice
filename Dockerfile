@@ -4,29 +4,19 @@ FROM pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime
 WORKDIR /app
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install required system packages
-RUN apt-get update && apt-get install -y \
-    libsndfile1 \
-    git \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y libsndfile1 git && rm -rf /var/lib/apt/lists/*
 
-# Install web serving utilities and OmniVoice dependencies
-RUN pip install --no-cache-dir \
-    fastapi \
-    uvicorn \
-    pydantic \
-    soundfile \
-    numpy \
-    omnivoice
+RUN pip install --no-cache-dir fastapi uvicorn pydantic soundfile numpy omnivoice
 
-# Pre-download weights to ensure they are built directly into the container layer
+# Pre-bake weights so the background load finishes within a few seconds
 RUN python -c "from omnivoice import OmniVoice; OmniVoice.from_pretrained('k2-fsa/OmniVoice')"
 
 COPY app.py /app/app.py
 
-# Inform RunPod which internal port variables to listen on
+# Enforce standard environmental variables for the RunPod proxy system
 ENV PORT=8000
 ENV PORT_HEALTH=8000
+ENV HEALTH_CHECK_PATH=/ping
 
 EXPOSE 8000
 
