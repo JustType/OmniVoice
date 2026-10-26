@@ -1,4 +1,3 @@
-
 FROM pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime
 
 WORKDIR /app
@@ -13,11 +12,6 @@ RUN python -c "from omnivoice import OmniVoice; OmniVoice.from_pretrained('k2-fs
 
 COPY app.py /app/app.py
 
-# Enforce standard environmental variables for the RunPod proxy system
 ENV PORT=8000
-ENV PORT_HEALTH=8000
-ENV HEALTH_CHECK_PATH=/ping
 
-EXPOSE 8000
-
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "app.py"]
