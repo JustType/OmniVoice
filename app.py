@@ -7,10 +7,7 @@ from pydantic import BaseModel
 from typing import Optional
 from omnivoice import OmniVoice
 
-# Initialize FastAPI application
 app = FastAPI(title="OmniVoice Streaming Serverless Endpoint")
-
-# Global model variable to hold OmniVoice weights in VRAM
 model = None
 
 @app.on_event("startup")
@@ -34,11 +31,15 @@ class TTSRequest(BaseModel):
     text: str
     instruct: Optional[str] = None
 
-@app.get("/health")
-def health_check():
-    """Health check endpoint for the RunPod Load Balancer."""
-    if model is list or model is None:
-        raise HTTPException(status_code=503, detail="Model not initialized")
+@app.get("/ping")
+async def health_check():
+    """
+    CRITICAL: RunPod Load Balancer health check.
+    Returns 200 OK once the weights are active in VRAM.
+    """
+    if model is None:
+        # Returning 503 keeps it out of the routing pool while warming up
+        raise HTTPException(status_code=503, detail="Model initializing")
     return {"status": "healthy"}
 
 @app.post("/v1/synthesize")
@@ -49,8 +50,6 @@ async def synthesize(payload: TTSRequest):
 
     def audio_streamer():
         try:
-            # Check if OmniVoice native generator supports streaming tokens chunk-by-chunk.
-            # If your framework package generates a singular array, fall back to slicing it into chunks.
             if hasattr(model, "generate_stream"):
                 print(f"Streaming text synthesis via generate_stream: {payload.text}")
                 for audio_chunk in model.generate_stream(text=payload.text, instruct=payload.instruct):
@@ -59,11 +58,9 @@ async def synthesize(payload: TTSRequest):
                 print(f"Synthesizing full text array and chunking bytes: {payload.text}")
                 full_audio = model.generate(text=payload.text, instruct=payload.instruct)
                 
-                # Convert the numpy float array to 16-bit PCM bytes for LiveKit compatibility
                 if full_audio.dtype != np.int16:
                     full_audio = (full_audio * 32767).astype(np.int16)
                 
-                # Stream the audio in small 20ms chunks (960 bytes for 24kHz 16-bit mono)
                 chunk_size = 960 
                 audio_bytes = full_audio.tobytes()
                 for i in range(0, len(audio_bytes), chunk_size):
@@ -71,13 +68,12 @@ async def synthesize(payload: TTSRequest):
                     
         except Exception as e:
             print(f"Inference error during generation streaming: {str(e)}")
-            # End generation early on unexpected failures
             return
 
-    # Return an active chunked HTTP streaming response
     return StreamingResponse(audio_streamer(), media_type="audio/pcm")
 
 if __name__ == "__main__":
     import uvicorn
-    # Bind to 0.0.0.0 so external load balancers can reach the app container internally
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Use the port environment variable assigned by RunPod or fallback to 8000
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
