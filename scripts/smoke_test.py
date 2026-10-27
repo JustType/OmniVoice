@@ -1,4 +1,5 @@
-"""Synthesize through the LiveKit TTS class, the same path an AgentSession takes.
+"""Speak through the LiveKit TTS class the way an AgentSession does: the text is streamed
+in word by word over the call's WebSocket.
 
     export RUNPOD_ENDPOINT_ID=... RUNPOD_API_KEY=...
     python scripts/smoke_test.py --voice nina-sk --languages sk en
@@ -32,7 +33,10 @@ async def synthesize(tts: OmniVoiceTTS, language: str, text: str) -> None:
     started = time.perf_counter()
     first_audio = None
     frames: list[rtc.AudioFrame] = []
-    async with tts.synthesize(text) as stream:
+    async with tts.stream() as stream:
+        for word in text.split(" "):
+            stream.push_text(word + " ")
+        stream.end_input()
         async for event in stream:
             if first_audio is None:
                 first_audio = time.perf_counter() - started

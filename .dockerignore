@@ -1,6 +1,7 @@
 .git
 client/
 scripts/
+tests/
 candidates/
 README.md
 **/__pycache__
