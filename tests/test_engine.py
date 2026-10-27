@@ -28,6 +28,7 @@ class EngineTests(unittest.TestCase):
     def test_flashinfer_captures_every_bucket_before_ready(self):
         engine = self._engine()
         self.assertEqual((engine.status, engine.accelerated, engine.gpu), ("ready", True, "Fake GPU"))
+        self.assertIsNone(engine.info()["acceleration_error"])
         self.assertEqual(engine.model.graph_buckets, [2, 4])
         self.assertEqual([call["duration"] for call in engine.model.calls], [2, 4, 2])
         self.assertTrue(all(call["num_step"] == 16 for call in engine.model.calls))
@@ -36,6 +37,10 @@ class EngineTests(unittest.TestCase):
         omnivoice_flashinfer.FAIL = True
         engine = self._engine()
         self.assertEqual((engine.status, engine.accelerated), ("ready", False))
+        self.assertEqual(
+            engine.info()["acceleration_error"],
+            "RuntimeError: no kernel image is available for execution on the device",
+        )
         self.assertEqual(omnivoice.OmniVoice.loads, 2)
         self.assertEqual(sorted(engine.voices), ["1", "2"])
 

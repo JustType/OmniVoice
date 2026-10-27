@@ -111,6 +111,8 @@ class Engine:
     voices: dict[str, VoiceClonePrompt] = field(default_factory=dict)
     sample_rate: int = 24000
     accelerated: bool = False
+    # Why FlashInfer is off although it was enabled; the worker log has the traceback.
+    acceleration_error: Optional[str] = None
     gpu: Optional[str] = None
     # The model is not thread-safe. A thread lock (not an asyncio one) keeps the GPU serialised
     # even when a request is cancelled while its generation thread is still running.
@@ -126,9 +128,10 @@ class Engine:
                 try:
                     self._accelerate(model, voices)
                     self.accelerated = True
-                except Exception:
+                except Exception as e:
                     # A half-patched model is unusable: start again from clean weights.
                     logger.exception("FlashInfer acceleration failed, decoding without it")
+                    self.acceleration_error = f"{type(e).__name__}: {e}"
                     model, voices = self._load_model()
             if not self.accelerated:
                 # The first generation compiles CUDA kernels; do it before taking traffic.
@@ -216,6 +219,7 @@ class Engine:
             "sample_rate": self.sample_rate,
             "num_step": self.settings.num_step,
             "accelerated": self.accelerated,
+            "acceleration_error": self.acceleration_error,
             "gpu": self.gpu,
         }
 

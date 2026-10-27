@@ -60,6 +60,10 @@ Optional env vars:
 At startup the worker logs the GPU, whether FlashInfer is on, and how long each bucket's warm-up took. The second
 run of the smallest bucket is the steady-state cost of a short sentence.
 
+If FlashInfer fails on the GPU, `/v1/voices` and the WebSocket's `ready` message report `"accelerated": false` with
+the reason in `acceleration_error`. The full traceback is in the worker log: RunPod console → Serverless → the
+endpoint → Workers → a worker → Logs.
+
 Health check (`GET /ping`):
 - `204` while the model loads and the CUDA graphs are captured;
 - `200` when ready;
@@ -83,7 +87,7 @@ U=https://$RUNPOD_ENDPOINT_ID.api.runpod.ai
 H="Authorization: Bearer $RUNPOD_API_KEY"
 
 curl -H "$H" $U/ping                      # {"status":"healthy"}
-curl -H "$H" $U/v1/voices                 # {"voices":[...],"num_step":16,"accelerated":true,"gpu":"..."}
+curl -H "$H" $U/v1/voices                 # {"voices":[...],"num_step":16,"accelerated":true,"acceleration_error":null,"gpu":"..."}
 curl -H "$H" -H 'Content-Type: application/json' -X POST $U/v1/synthesize \
      -d '{"text":"Dobrý deň, ako vám môžem pomôcť?","voice":"1","language":"sk","response_format":"wav"}' \
      -o out.wav -D - | grep -i x-
@@ -112,7 +116,7 @@ Server → client:
 
 | Message | |
 |---|---|
-| `{"type": "ready", "sample_rate", "voices", "num_step", "accelerated", "gpu"}` | First message. Close code 1013 instead when the model is not loaded yet |
+| `{"type": "ready", "sample_rate", "voices", "num_step", "accelerated", "acceleration_error", "gpu"}` | First message. Close code 1013 instead when the model is not loaded yet |
 | `{"type": "audio", "stream_id", "seq", "text", "end", "audio", "queue_ms", "gen_ms"}` | One per generated segment. `end` is the offset in the utterance's text just past it, so a client that lost the connection resumes there |
 | `{"type": "done", "stream_id"}` | All of the utterance's audio was sent |
 | `{"type": "error", "stream_id", "status", "message"}` | 400: bad input such as an unknown voice. 500: inference failed. The utterance ends |
